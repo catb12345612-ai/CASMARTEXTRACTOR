@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CA Smart Contact & Tax Extractor CRM</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
+
+  <!-- Top Header -->
+  <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+    <div class="flex items-center gap-3">
+      <div class="bg-emerald-500/20 text-emerald-400 p-2.5 rounded-lg border border-emerald-500/30">
+        <i class="fa-solid fa-file-invoice-dollar text-xl"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold tracking-wide text-white">CA Smart Data Extractor & Mini-CRM</h1>
+        <p class="text-xs text-slate-400">100% Client-Side Privacy • Instant Phone, Email, GSTIN & PAN Extraction</p>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="loadSampleData()" class="px-3 py-2 text-xs font-medium bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition">
+        <i class="fa-solid fa-flask mr-1"></i> Load Sample CA Data
+      </button>
+      <button onclick="clearAll()" class="px-3 py-2 text-xs font-medium bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-lg transition">
+        <i class="fa-solid fa-trash-can mr-1"></i> Clear
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    
+    <!-- Left Column: Paste Zone (4 cols) -->
+    <section class="lg:col-span-4 flex flex-col gap-4">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col flex-1 shadow-lg">
+        <label class="text-sm font-semibold text-slate-200 mb-1 flex justify-between items-center">
+          <span>1. Paste Raw Company / Client Data</span>
+          <span class="text-xs font-normal text-emerald-400">Auto-Deduplicates</span>
+        </label>
+        <p class="text-xs text-slate-400 mb-3">Copy and paste unstructured data from Tally exports, GST portal, PDFs, Word docs, or emails.</p>
+        
+        <textarea id="rawInput" rows="14" 
+          placeholder="Example:&#10;M/s Sri Rama Traders - Khammam&#10;GSTIN: 36AABCS1429B1Z1 | PAN: AABCS1429B&#10;Contact: +91 98480 12345, 9000112233&#10;Email: accounts@sriramatraders.in"
+          class="w-full flex-1 bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500 font-mono resize-none"></textarea>
+
+        <div class="mt-4 flex flex-col gap-2">
+          <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="groupByLine" checked class="accent-emerald-500 rounded">
+              <span>Smart Row Grouping (Line-by-Line CRM)</span>
+            </label>
+          </div>
+          <button onclick="extractData()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-bolt"></i> Extract Contacts & Tax IDs
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Extracted Results & CRM Table (8 cols) -->
+    <section class="lg:col-span-8 flex flex-col gap-4">
+      
+      <!-- KPI Summary Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p class="text-xs text-slate-400">Unique Phones</p>
+            <p id="statPhones" class="text-2xl font-bold text-emerald-400">0</p>
+          </div>
+          <button onclick="copyList('phones')" title="Copy All Phones" class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-200">
+            <i class="fa-regular fa-copy"></i> Copy
+          </button>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p class="text-xs text-slate-400">Unique Emails</p>
+            <p id="statEmails" class="text-2xl font-bold text-sky-400">0</p>
+          </div>
+          <button onclick="copyList('emails')" title="Copy All Emails" class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-200">
+            <i class="fa-regular fa-copy"></i> Copy
+          </button>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p class="text-xs text-slate-400">GSTINs Found</p>
+            <p id="statGstin" class="text-2xl font-bold text-amber-400">0</p>
+          </div>
+          <button onclick="copyList('gstins')" title="Copy All GSTINs" class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-200">
+            <i class="fa-regular fa-copy"></i> Copy
+          </button>
+        </div>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <p class="text-xs text-slate-400">PANs Found</p>
+            <p id="statPan" class="text-2xl font-bold text-purple-400">0</p>
+          </div>
+          <button onclick="copyList('pans')" title="Copy All PANs" class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-200">
+            <i class="fa-regular fa-copy"></i> Copy
+          </button>
+        </div>
+      </div>
+
+      <!-- CRM Table Container -->
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex-1 flex flex-col shadow-lg overflow-hidden">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+          <div class="relative flex-1 min-w-[200px]">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-sm"></i>
+            <input type="text" id="searchInput" oninput="renderTable()" placeholder="Filter extracted records by name, phone, email, or GSTIN..." 
+              class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
+          </div>
+          <div class="flex gap-2">
+            <button onclick="exportToExcel()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1.5">
+              <i class="fa-solid fa-file-excel"></i> Export Excel (.xlsx)
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable Table -->
+        <div class="overflow-x-auto flex-1 border border-slate-700 rounded-lg">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead class="bg-slate-900/90 text-slate-400 text-xs uppercase border-b border-slate-700 sticky top-0">
+              <tr>
+                <th class="py-3 px-3">#</th>
+                <th class="py-3 px-3">Company / Context Hint</th>
+                <th class="py-3 px-3">Mobile Number(s)</th>
+                <th class="py-3 px-3">Email Address(es)</th>
+                <th class="py-3 px-3">GSTIN / PAN</th>
+                <th class="py-3 px-3 text-right">Quick CRM Actions</th>
+              </tr>
+            </thead>
+            <tbody id="crmTableBody" class="divide-y divide-slate-700/60 text-slate-200">
+              <tr>
+                <td colspan="6" class="text-center py-12 text-slate-500">
+                  <i class="fa-solid fa-paste text-2xl mb-2 block"></i>
+                  Paste client data on the left and click <b>Extract Contacts & Tax IDs</b>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Footer Attribution -->
+  <footer class="bg-slate-950 border-t border-slate-800 py-3 px-6 text-center text-xs text-slate-400 flex flex-col sm:flex-row justify-between items-center gap-2">
+    <span>CA Client Contact & Tax Extractor CRM</span>
+    <span class="text-slate-300 font-medium">Developed & Edited by Syed Zeeshaan Ali • Syed Zeeshaan Ali High-Fledged Engineering And Digital Tech Solutions</span>
+  </footer>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 bg-emerald-600 text-white px-4 py-2.5 rounded-lg shadow-xl text-xs font-semibold hidden items-center gap-2 z-50">
+    <i class="fa-solid fa-circle-check"></i>
+    <span id="toastMsg">Copied!</span>
+  </div>
+
+  <script>
+    // Global State
+    let extractedRows = [];
+    let uniqueLists = { phones: [], emails: [], gstins: [], pans: [] };
+
+    // Regex Patterns tailored for Indian CA Data
+    const REGEX = {
+      email: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi,
+      // Matches +91, 91, 0 prefixes and 10-digit Indian mobile numbers starting with 6-9
+      phone: /(?:(?:\+|0{0,2})91[\s\-]?)?[6789]\d{4}[\s\-]?\d{5}\b/g,
+      // Standard 15-character Indian GSTIN
+      gstin: /\b\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}\b/gi,
+      // Standard 10-character Indian PAN
+      pan: /\b[A-Z]{5}\d{4}[A-Z]{1}\b/gi
+    };
+
+    function cleanPhone(raw) {
+      let digits = raw.replace(/\D/g, '');
+      if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+      if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+      return digits.length === 10 ? digits : null;
+    }
+
+    function extractData() {
+      const rawText = document.getElementById('rawInput').value.trim();
+      if (!rawText) {
+        showToast('Please paste some text first!', true);
+        return;
+      }
+
+      const groupByLine = document.getElementById('groupByLine').checked;
+      
+      // 1. Global Unique Lists
+      const allEmails = [...new Set((rawText.match(REGEX.email) || []).map(e => e.toLowerCase()))];
+      const allPhones = [...new Set((rawText.match(REGEX.phone) || []).map(cleanPhone).filter(Boolean))];
+      const allGstins = [...new Set((rawText.match(REGEX.gstin) || []).map(g => g.toUpperCase()))];
+      const allPans = [...new Set((rawText.match(REGEX.pan) || []).map(p => p.toUpperCase()))];
+
+      uniqueLists = { phones: allPhones, emails: allEmails, gstins: allGstins, pans: allPans };
+
+      // Update KPI Cards
+      document.getElementById('statPhones').innerText = allPhones.length;
+      document.getElementById('statEmails').innerText = allEmails.length;
+      document.getElementById('statGstin').innerText = allGstins.length;
+      document.getElementById('statPan').innerText = allPans.length;
+
+      extractedRows = [];
+
+      if (groupByLine) {
+        // Parse line-by-line so company names stay linked to their phone/email
+        const lines = rawText.split(/\r?\n/);
+        lines.forEach((line) => {
+          if (!line.trim()) return;
+          const emails = [...new Set((line.match(REGEX.email) || []).map(e => e.toLowerCase()))];
+          const phones = [...new Set((line.match(REGEX.phone) || []).map(cleanPhone).filter(Boolean))];
+          const gstins = [...new Set((line.match(REGEX.gstin) || []).map(g => g.toUpperCase()))];
+          const pans = [...new Set((line.match(REGEX.pan) || []).map(p => p.toUpperCase()))];
+
+          if (emails.length || phones.length || gstins.length || pans.length) {
+            // Strip matched tokens to guess the Company Name / Context
+            let context = line
+              .replace(REGEX.email, '')
+              .replace(REGEX.phone, '')
+              .replace(REGEX.gstin, '')
+              .replace(REGEX.pan, '')
+              .replace(/[\|\-\:\,\(\)\[\]\/]+/g, ' ')
+              .replace(/\b(GSTIN|PAN|Mob|Mobile|Phone|Ph|Email|Contact|Tel)\b/gi, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            extractedRows.push({
+              context: context.slice(0, 50) || 'Client Record',
+              phones,
+              emails,
+              gstins,
+              pans
+            });
+          }
+        });
+      } else {
+        // Flat row alignment
+        const maxLen = Math.max(allPhones.length, allEmails.length, allGstins.length, allPans.length);
+        for (let i = 0; i < maxLen; i++) {
+          extractedRows.push({
+            context: `Extracted Lead #${i + 1}`,
+            phones: allPhones[i] ? [allPhones[i]] : [],
+            emails: allEmails[i] ? [allEmails[i]] : [],
+            gstins: allGstins[i] ? [allGstins[i]] : [],
+            pans: allPans[i] ? [allPans[i]] : []
+          });
+        }
+      }
+
+      renderTable();
+      showToast(`Extracted ${allPhones.length} Phones & ${allEmails.length} Emails!`);
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('crmTableBody');
+      const query = document.getElementById('searchInput').value.toLowerCase();
+
+      const filtered = extractedRows.filter(r => {
+        const hay = `${r.context} ${r.phones.join(' ')} ${r.emails.join(' ')} ${r.gstins.join(' ')} ${r.pans.join(' ')}`.toLowerCase();
+        return hay.includes(query);
+      });
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-10 text-slate-500">No matching records found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map((row, idx) => {
+        const primaryPhone = row.phones[0] || '';
+        const primaryEmail = row.emails[0] || '';
+
+        const phoneBadges = row.phones.map(p => 
+          `<span class="inline-block bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded text-xs font-mono mr-1 mb-1">${p}</span>`
+        ).join('') || '<span class="text-slate-600 text-xs">—</span>';
+
+        const emailBadges = row.emails.map(e => 
+          `<span class="inline-block bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2 py-0.5 rounded text-xs font-mono mr-1 mb-1">${e}</span>`
+        ).join('') || '<span class="text-slate-600 text-xs">—</span>';
+
+        const taxBadges = [
+          ...row.gstins.map(g => `<span class="inline-block bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded text-xs font-mono mr-1 mb-1">GST: ${g}</span>`),
+          ...row.pans.map(p => `<span class="inline-block bg-purple-500/10 text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded text-xs font-mono mr-1 mb-1">PAN: ${p}</span>`)
+        ].join('') || '<span class="text-slate-600 text-xs">—</span>';
+
+        return `
+          <tr class="hover:bg-slate-700/40 transition">
+            <td class="py-2.5 px-3 text-xs text-slate-500">${idx + 1}</td>
+            <td class="py-2.5 px-3 font-medium text-slate-200">${row.context}</td>
+            <td class="py-2.5 px-3">${phoneBadges}</td>
+            <td class="py-2.5 px-3">${emailBadges}</td>
+            <td class="py-2.5 px-3">${taxBadges}</td>
+            <td class="py-2.5 px-3 text-right whitespace-nowrap">
+              ${primaryPhone ? `
+                <a href="https://wa.me/91${primaryPhone}?text=${encodeURIComponent('Dear ' + row.context + ', greetings from our CA Office regarding your tax filing.')}" target="_blank" title="WhatsApp Client" class="inline-block px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded text-xs mr-1 transition">
+                  <i class="fa-brands fa-whatsapp"></i>
+                </a>
+                <a href="tel:+91${primaryPhone}" title="Call Client" class="inline-block px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded text-xs mr-1 transition">
+                  <i class="fa-solid fa-phone"></i>
+                </a>
+              ` : ''}
+              ${primaryEmail ? `
+                <a href="mailto:${primaryEmail}?subject=Tax%20Compliance%20Update" title="Send Email" class="inline-block px-2.5 py-1 bg-sky-600/20 hover:bg-sky-600 text-sky-300 hover:text-white rounded text-xs transition">
+                  <i class="fa-solid fa-envelope"></i>
+                </a>
+              ` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function copyList(type) {
+      const list = uniqueLists[type] || [];
+      if (!list.length) {
+        showToast(`No ${type} to copy!`, true);
+        return;
+      }
+      navigator.clipboard.writeText(list.join('\n'));
+      showToast(`Copied ${list.length} ${type.toUpperCase()} to clipboard!`);
+    }
+
+    function exportToExcel() {
+      if (!extractedRows.length) {
+        showToast('Extract data first before exporting!', true);
+        return;
+      }
+      const dataForSheet = extractedRows.map((r, i) => ({
+        "S.No": i + 1,
+        "Company / Client Name": r.context,
+        "Mobile Numbers": r.phones.join(', '),
+        "Email Addresses": r.emails.join(', '),
+        "GSTIN": r.gstins.join(', '),
+        "PAN": r.pans.join(', ')
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(dataForSheet);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "CA_Extracted_Leads");
+      XLSX.writeFile(wb, `CA_Extracted_Contacts_${new Date().toISOString().slice(0,10)}.xlsx`);
+      showToast('Excel file downloaded!');
+    }
+
+    function loadSampleData() {
+      document.getElementById('rawInput').value = 
+`1. M/s Kakatiya Agro Foods Pvt Ltd | Mob: +91 98481 23456, 9440112233 | Email: info@kakatiyaagro.in | GSTIN: 36AABCK1234F1Z5
+2. Sri Lakshmi Narasimha Textiles (Khammam) - Ph: 091-9988776655, accounts@slntextiles.com, PAN: ABCTY1234D
+3. Deccan Infra & Builders | Contact: 8899001122 | billing@deccaninfra.co.in | GSTIN: 36AAECD9876B1Z2
+4. Duplicate Test Line: +91-9848123456 info@kakatiyaagro.in
+5. Vyapari General Stores - Ramesh Garu: 7702233445, ramesh.vyapari@gmail.com`;
+      extractData();
+    }
+
+    function clearAll() {
+      document.getElementById('rawInput').value = '';
+      extractedRows = [];
+      uniqueLists = { phones: [], emails: [], gstins: [], pans: [] };
+      ['statPhones', 'statEmails', 'statGstin', 'statPan'].forEach(id => document.getElementById(id).innerText = '0');
+      renderTable();
+    }
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').innerText = msg;
+      toast.className = `fixed bottom-5 right-5 ${isError ? 'bg-rose-600' : 'bg-emerald-600'} text-white px-4 py-2.5 rounded-lg shadow-xl text-xs font-semibold flex items-center gap-2 z-50`;
+      setTimeout(() => toast.classList.add('hidden'), 2800);
+    }
+  </script>
+</body>
+</html>
